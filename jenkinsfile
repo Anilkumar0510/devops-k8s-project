@@ -1,0 +1,79 @@
+pipeline {
+    agent any
+    
+    tools {
+        maven "maven"
+    }
+    environment {
+        DOCKER_IMAGE = "mmbabu/cicd-devops:${BUILD_NUMBER}"
+        KUBE_NAMESPACE = "jenkins"
+        DEPLOYMENT_NAME = "deploymentservice.yaml"
+        KUBE_CONFIG = credentials('k8s-token') // Jenkins credential for Kubeconfig
+    }
+
+    stages {
+        stage('GIT-CHECKOUT-SCM') {
+            steps {
+               git branch: 'main', changelog: false, poll: false, url: 'https://github.com/mmbabu0705/devops-k8s-project.git'
+            }
+        }
+        stage('COMPILE-THE-CODE') {
+            steps {
+               sh "mvn compile"
+            }
+        }
+        stage('TEST-THE-CODE') {
+            steps {
+               sh "mvn test"
+            }
+        }
+        stage('SONARQUBE-ANALYSIS') {
+            steps {
+                withSonarQubeEnv("sonar") {
+                sh 'mvn sonar:sonar'
+                }
+            }
+        }
+        stage('TRIVY-SCAN') {
+            steps {
+               sh "trivy fs --security-checks vuln,config /var/lib/jenkins/workspace/K8S-PIPELINE-PROJECT"
+            }
+        }
+        stage('PACKAGE-THE-CODE') {
+            steps {
+               sh "mvn package"
+            }
+        }
+        stage('DOCKER-BUILD') {
+            steps {
+                script {
+                    withDockerRegistry(credentialsId: 'docker_cred', toolName: 'docker-latest') {
+                        sh "docker build -t cicd-devops ."
+                    }
+                }
+            }
+        }
+        stage('DOCKER-PUSH') {
+            steps {
+                script {
+                    withDockerRegistry(credentialsId: 'docker_cred', toolName: 'docker-latest', url: 'https://index.docker.io/v1/') {
+                        sh "docker tag cicd-devops mmbabu/cicd-devops:${BUILD_NUMBER}"
+                        sh "docker push mmbabu/cicd-devops:${BUILD_NUMBER}"
+                    }
+                }
+            }
+        }
+        stage('DEPLOY-TO-KUBERNETES') {
+            steps {
+                script {
+                    withKubeConfig([credentialsId: 'k8s-token']) {
+                        sh """
+                        kubectl apply -f deploymentservice.yaml -n ${KUBE_NAMESPACE}
+                        
+                        """
+                    }
+                }
+            }
+        }
+    }
+}
