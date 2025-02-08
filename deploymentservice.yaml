@@ -14,7 +14,7 @@ spec:
     spec:
       containers:
         - name: spring-boot-k8s
-          image: mmbabu/cicd-devops:$BUILD_ID # Image that will be used to containers in the cluster
+          image: mmbabu/cicd-devops:$BUILD_ID 
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 8080 # The port that the container is running on in the cluster
