@@ -12,7 +12,6 @@ public class DevopsIntegrationApplication {
 	@GetMapping
 	public String message(){
 		return "WELCOME TO TEKS-ACADEMY";
-		return "KPHB-HYDERABAD"
 	}
 
 	public static void main(String[] args) {
